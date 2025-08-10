@@ -115,7 +115,7 @@ exports.getProductById = (req, res) => {
   const sql = `
     SELECT 
       p.id, p.title, p.imageUrl, p.description, p.quantity, 
-      p.available_quantity, p.price, pd.discount_percentage
+      p.available_quantity, p.price, p.color, pd.discount_percentage
     FROM products p
     LEFT JOIN product_discounts pd 
       ON p.id = pd.product_id 
