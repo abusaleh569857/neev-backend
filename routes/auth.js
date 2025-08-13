@@ -55,7 +55,12 @@ router.post("/login", (req, res) => {
     // ✅ Login success
     res.status(200).json({
       message: "লগইন সফল",
-      user: { id: user.id, name: user.name, number: user.number },
+      user: {
+        id: user.id,
+        name: user.name,
+        number: user.number,
+        role: user.role,
+      },
     });
   });
 });

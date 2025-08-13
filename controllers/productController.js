@@ -1,6 +1,15 @@
 const db = require("../config/db");
 
+// Fetch ALL products (not just trending)
 exports.getAllProducts = (req, res) => {
+  const sql = "SELECT * FROM products";
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ error: "Database error" });
+    res.json(results);
+  });
+};
+
+exports.getAllTrendingProducts = (req, res) => {
   console.log("Fetching products...");
 
   // SQL query to get all products where is_trending is TRUE
@@ -149,4 +158,129 @@ exports.getProductById = (req, res) => {
 
     res.json(formattedProduct);
   });
+};
+
+// ✅ Update Product
+exports.updateProduct = (req, res) => {
+  const { id } = req.params;
+  const {
+    title,
+    description,
+    imageUrl,
+    quantity,
+    available_quantity,
+    price,
+    is_trending,
+    color,
+  } = req.body;
+
+  const sql = `
+    UPDATE products
+    SET title = ?, description = ?, imageUrl = ?, quantity = ?, 
+        available_quantity = ?, price = ?, is_trending = ?, color = ?
+    WHERE id = ?
+  `;
+
+  db.query(
+    sql,
+    [
+      title,
+      description,
+      imageUrl,
+      quantity,
+      available_quantity,
+      price,
+      is_trending,
+      color,
+      id,
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("Update Error:", err);
+        return res.status(500).json({ error: "Update failed" });
+      }
+      res.json({ message: "Product updated successfully" });
+    }
+  );
+};
+
+// ✅ Delete Product
+exports.deleteProduct = (req, res) => {
+  const { id } = req.params;
+
+  const sql = "DELETE FROM products WHERE id = ?";
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error("Delete Error:", err);
+      return res.status(500).json({ error: "Delete failed" });
+    }
+    res.json({ message: "Product deleted successfully" });
+  });
+};
+
+// Create Product with Categories
+exports.createProduct = (req, res) => {
+  const {
+    title,
+    description,
+    imageUrl,
+    price,
+    quantity,
+    available_quantity,
+    color,
+    is_trending,
+    categoryIds, // Expect an array of category IDs from front-end
+  } = req.body;
+
+  const sql = `
+    INSERT INTO products
+      (title, description, imageUrl, price, quantity, available_quantity, color, is_trending)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(
+    sql,
+    [
+      title,
+      description,
+      imageUrl,
+      price,
+      quantity,
+      available_quantity,
+      color,
+      is_trending,
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("Error inserting product:", err);
+        return res
+          .status(500)
+          .json({ error: "Database error on insert product" });
+      }
+
+      const newProductId = result.insertId;
+      if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+        const values = categoryIds.map((catId) => [newProductId, catId]);
+        const insertCategoriesSql = `
+          INSERT INTO product_categories (product_id, category_id)
+          VALUES ?
+        `;
+        db.query(insertCategoriesSql, [values], (err2) => {
+          if (err2) {
+            console.error("Error inserting categories:", err2);
+            return res
+              .status(500)
+              .json({ error: "Database error on product categories" });
+          }
+          return res
+            .status(201)
+            .json({ message: "Product created with categories" });
+        });
+      } else {
+        return res
+          .status(201)
+          .json({ message: "Product created without categories" });
+      }
+    }
+  );
 };
