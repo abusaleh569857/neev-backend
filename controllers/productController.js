@@ -27,12 +27,8 @@ exports.getAllProducts = (req, res) => {
   `;
 
   db.query(sql, (err, results) => {
-    if (err) {
-      console.error("Database query error in getAllProducts:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
+    if (err) return res.status(500).json({ error: "Database error" });
 
-    // Parse results into product objects with variants array
     const productMap = {};
 
     results.forEach((row) => {
@@ -90,18 +86,13 @@ exports.getProductById = (req, res) => {
   `;
 
   db.query(sql, [productId], (err, results) => {
-    if (err) {
-      console.error("DB Error:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
+    if (err) return res.status(500).json({ error: "Database error" });
 
     if (results.length === 0) {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    // Just take the first variant (or only variant) and calculate discounted price
     const product = results[0];
-    console.log("product : ", results[0]);
     const price = parseFloat(product.price) || 0;
     const discount = parseFloat(product.discount_percentage) || 0;
     const discountedPrice = Math.round(price - (price * discount) / 100);
@@ -118,12 +109,8 @@ exports.getProductById = (req, res) => {
 
 exports.getProductByIdByAdmin = (req, res) => {
   const productId = req.params.id;
-  const { color, size } = req.query; // Query params থেকে নিলাম
-  console.log("Product ID:", productId);
-  console.log("Color:", color);
-  console.log("Size:", size);
+  const { color, size } = req.query;
 
-  // Base query
   let sql = `
     SELECT
       p.id AS product_id,
@@ -147,7 +134,6 @@ exports.getProductByIdByAdmin = (req, res) => {
 
   const params = [productId];
 
-  // যদি color এবং size পাওয়া যায় তাহলে WHERE clause এ যুক্ত করব
   if (color) {
     sql += " AND pv.color = ?";
     params.push(color);
@@ -158,10 +144,7 @@ exports.getProductByIdByAdmin = (req, res) => {
   }
 
   db.query(sql, params, (err, results) => {
-    if (err) {
-      console.error("DB Error:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
+    if (err) return res.status(500).json({ error: "Database error" });
 
     if (results.length === 0) {
       return res.status(404).json({ error: "Product not found" });
@@ -196,37 +179,6 @@ exports.getProductByIdByAdmin = (req, res) => {
   });
 };
 
-exports.getAllTrendingProducts = (req, res) => {
-  const sql = `
-    SELECT 
-      p.id AS product_id,
-      p.title,
-      p.description,
-      p.imageUrl,
-      p.is_trending,
-      GROUP_CONCAT(DISTINCT c.title) AS categories
-    FROM products p
-    LEFT JOIN product_categories pc ON p.id = pc.product_id
-    LEFT JOIN categories c ON pc.category_id = c.id
-    WHERE p.is_trending = 1
-    GROUP BY p.id
-  `;
-
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error("DB error in getAllTrendingProducts:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
-
-    const products = results.map((p) => ({
-      ...p,
-      categories: p.categories ? p.categories.split(",") : [],
-    }));
-
-    res.json(products);
-  });
-};
-
 exports.getDropshoulderProducts = (req, res) => {
   const sql = `
     SELECT 
@@ -250,12 +202,8 @@ exports.getDropshoulderProducts = (req, res) => {
   `;
 
   db.query(sql, (err, results) => {
-    if (err) {
-      console.error("Database query error:", err);
-      return res.status(500).json({ error: "Database query error" });
-    }
+    if (err) return res.status(500).json({ error: "Database query error" });
 
-    // প্রতিটি variant আলাদাভাবে product হিসাবে পাঠানো
     const products = results.map((row) => ({
       product_id: row.product_id,
       title: row.title,
@@ -296,15 +244,9 @@ exports.getOldMoneyPoloProducts = (req, res) => {
     WHERE c.title = 'Old Money Polo';
   `;
 
-  console.log("📥 Executing SQL query:\n", sql);
-
   db.query(sql, (err, results) => {
-    if (err) {
-      console.error("❌ Database query error:", err);
-      return res.status(500).json({ error: "Database query error" });
-    }
+    if (err) return res.status(500).json({ error: "Database query error" });
 
-    // Map each variant as separate product entry
     const products = results.map((row) => ({
       product_id: row.product_id,
       variant_id: row.variant_id,
@@ -320,7 +262,6 @@ exports.getOldMoneyPoloProducts = (req, res) => {
       ),
     }));
 
-    console.log("🛒 Old Money Polo products with variants:\n", products);
     res.json(products);
   });
 };
@@ -364,10 +305,7 @@ exports.getProductsBySearch = (req, res) => {
     sql,
     [searchTerm, searchTerm, searchTerm, searchTerm, searchTerm],
     (err, results) => {
-      if (err) {
-        console.error("DB error in search:", err);
-        return res.status(500).json({ error: "Database error" });
-      }
+      if (err) return res.status(500).json({ error: "Database error" });
 
       const productMap = {};
 
@@ -416,32 +354,24 @@ exports.createProduct = (req, res) => {
       .json({ error: "Title, description, and imageUrl are required" });
   }
 
-  // 1️⃣ Insert product
   const productSql = `INSERT INTO products (title, description, imageUrl, is_trending) VALUES (?, ?, ?, ?)`;
   db.query(
     productSql,
     [title, description, imageUrl, is_trending || 0],
     (err, result) => {
-      if (err) {
-        console.error("DB error creating product:", err);
+      if (err)
         return res.status(500).json({ error: "Failed to create product" });
-      }
 
       const productId = result.insertId;
 
-      // 2️⃣ Insert categories
       if (categoryIds && categoryIds.length) {
         const catValues = categoryIds.map((catId) => [productId, catId]);
         db.query(
           "INSERT INTO product_categories (product_id, category_id) VALUES ?",
-          [catValues],
-          (err2) => {
-            if (err2) console.error("DB error inserting categories:", err2);
-          }
+          [catValues]
         );
       }
 
-      // 3️⃣ Insert variants (convert string to number)
       if (variants && variants.length) {
         const variantValues = variants.map((v) => [
           productId,
@@ -453,31 +383,21 @@ exports.createProduct = (req, res) => {
         ]);
         db.query(
           "INSERT INTO product_variants (product_id, color, size, price, quantity, available_quantity) VALUES ?",
-          [variantValues],
-          (err3) => {
-            if (err3) console.error("DB error inserting variants:", err3);
-          }
+          [variantValues]
         );
       }
 
-      // 4️⃣ Insert discount if provided
       if (discount) {
         const discountSql = `
-        INSERT INTO product_discounts (product_id, discount_percentage, start_date, end_date)
-        VALUES (?, ?, ?, ?)
-      `;
-        db.query(
-          discountSql,
-          [
-            productId,
-            parseFloat(discount.discount_percentage) || 0,
-            discount.start_date || null,
-            discount.end_date || null,
-          ],
-          (err4) => {
-            if (err4) console.error("DB error inserting discount:", err4);
-          }
-        );
+          INSERT INTO product_discounts (product_id, discount_percentage, start_date, end_date)
+          VALUES (?, ?, ?, ?)
+        `;
+        db.query(discountSql, [
+          productId,
+          parseFloat(discount.discount_percentage) || 0,
+          discount.start_date || null,
+          discount.end_date || null,
+        ]);
       }
 
       return res.json({ message: "Product created successfully", productId });
@@ -485,16 +405,12 @@ exports.createProduct = (req, res) => {
   );
 };
 
-// ✅ Delete Product
 exports.deleteProduct = (req, res) => {
   const { id } = req.params;
 
   const sql = "DELETE FROM products WHERE id = ?";
-  db.query(sql, [id], (err, result) => {
-    if (err) {
-      console.error("Delete Error:", err);
-      return res.status(500).json({ error: "Delete failed" });
-    }
+  db.query(sql, [id], (err) => {
+    if (err) return res.status(500).json({ error: "Delete failed" });
     res.json({ message: "Product deleted successfully" });
   });
 };
@@ -511,9 +427,6 @@ exports.updateProduct = (req, res) => {
     discount,
   } = req.body;
 
-  console.log("📥 Incoming update request:", req.body);
-
-  // Convert string numbers to actual numbers
   variants = variants.map((v) => ({
     ...v,
     price: parseFloat(v.price) || 0,
@@ -526,62 +439,40 @@ exports.updateProduct = (req, res) => {
       parseFloat(discount.discount_percentage) || 0;
   }
 
-  // Step 1: Update main product table
   db.query(
     `UPDATE products SET title=?, description=?, imageUrl=?, is_trending=? WHERE id=?`,
     [title, description, imageUrl, is_trending ? 1 : 0, id],
     (err) => {
-      if (err) {
-        console.error("❌ Error updating product:", err);
+      if (err)
         return res.status(500).json({ error: "Failed to update product" });
-      }
 
-      console.log("✅ Main product updated");
-
-      // Step 2: Update categories
       if (categoryIds && categoryIds.length > 0) {
         db.query(
           "DELETE FROM product_categories WHERE product_id=?",
           [id],
-          (err) => {
-            if (err) console.error("⚠ Error deleting categories:", err);
-
+          () => {
             const values = categoryIds.map((cid) => [id, cid]);
             if (values.length > 0) {
               db.query(
                 "INSERT INTO product_categories (product_id, category_id) VALUES ?",
-                [values],
-                (err) => {
-                  if (err) console.error("⚠ Error inserting categories:", err);
-                  else console.log("✅ Categories updated");
-                }
+                [values]
               );
             }
           }
         );
       }
 
-      // Step 3: Update or insert variants
       if (variants && variants.length > 0) {
         variants.forEach((v) => {
           db.query(
             `SELECT id FROM product_variants WHERE product_id=? AND color=? AND size=?`,
             [id, v.color, v.size],
             (err, result) => {
-              if (err) console.error("⚠ Error checking variant:", err);
-              else if (result.length > 0) {
+              if (!err && result.length > 0) {
                 const variantId = result[0].id;
                 db.query(
                   `UPDATE product_variants SET price=?, quantity=?, available_quantity=? WHERE id=?`,
-                  [v.price, v.quantity, v.available_quantity, variantId],
-                  (err) => {
-                    if (err)
-                      console.error(
-                        `⚠ Error updating variant id ${variantId}:`,
-                        err
-                      );
-                    else console.log(`✅ Variant id ${variantId} updated`);
-                  }
+                  [v.price, v.quantity, v.available_quantity, variantId]
                 );
               } else {
                 db.query(
@@ -593,14 +484,7 @@ exports.updateProduct = (req, res) => {
                     v.price,
                     v.quantity,
                     v.available_quantity,
-                  ],
-                  (err, result) => {
-                    if (err) console.error("⚠ Error inserting variant:", err);
-                    else
-                      console.log(
-                        `✅ New variant inserted with id ${result.insertId}`
-                      );
-                  }
+                  ]
                 );
               }
             }
@@ -608,14 +492,12 @@ exports.updateProduct = (req, res) => {
         });
       }
 
-      // Step 4: Update or insert discount
       if (discount) {
         db.query(
           `SELECT id FROM product_discounts WHERE product_id=?`,
           [id],
           (err, result) => {
-            if (err) console.error("⚠ Error checking discount:", err);
-            else if (result.length > 0) {
+            if (!err && result.length > 0) {
               db.query(
                 `UPDATE product_discounts SET discount_percentage=?, start_date=?, end_date=? WHERE product_id=?`,
                 [
@@ -623,11 +505,7 @@ exports.updateProduct = (req, res) => {
                   discount.start_date,
                   discount.end_date,
                   id,
-                ],
-                (err) => {
-                  if (err) console.error("⚠ Error updating discount:", err);
-                  else console.log("✅ Discount updated");
-                }
+                ]
               );
             } else {
               db.query(
@@ -637,18 +515,14 @@ exports.updateProduct = (req, res) => {
                   discount.discount_percentage,
                   discount.start_date,
                   discount.end_date,
-                ],
-                (err) => {
-                  if (err) console.error("⚠ Error inserting discount:", err);
-                  else console.log("✅ Discount inserted");
-                }
+                ]
               );
             }
           }
         );
       }
 
-      res.json({ message: "✅ Product updated successfully" });
+      res.json({ message: "Product updated successfully" });
     }
   );
 };
@@ -656,10 +530,7 @@ exports.updateProduct = (req, res) => {
 exports.getAllCategories = (req, res) => {
   const sql = `SELECT id, title FROM categories ORDER BY id ASC`;
   db.query(sql, (err, results) => {
-    if (err) {
-      console.error("Error fetching categories:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
+    if (err) return res.status(500).json({ error: "Database error" });
     res.json(results);
   });
 };

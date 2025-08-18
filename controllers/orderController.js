@@ -23,7 +23,6 @@ exports.createOrder = (req, res) => {
       return res.status(500).json({ error: "Transaction error", details: err });
     }
 
-    // 1️⃣ Insert into orders table
     const sqlOrder = `INSERT INTO orders (status, created_at) VALUES (?, NOW())`;
     db.query(sqlOrder, ["Pending"], async (err, orderResult) => {
       if (err) {
@@ -34,9 +33,7 @@ exports.createOrder = (req, res) => {
       }
 
       const orderId = orderResult.insertId;
-      console.log("Order created with ID:", orderId);
 
-      // 2️⃣ Insert into delivery_info
       const sqlDelivery = `
         INSERT INTO delivery_info 
         (order_id, name, phone, address, delivery_area, delivery_charge, totalPrice, grandTotal)
@@ -63,15 +60,12 @@ exports.createOrder = (req, res) => {
                 .json({ error: "Delivery info insert failed", details: err })
             );
           }
-          console.log("Delivery info inserted for order:", orderId);
 
-          // 3️⃣ Insert into order_items with automatic variantId lookup
           const itemValues = [];
 
           const processItems = async () => {
             for (const item of items) {
               await new Promise((resolve, reject) => {
-                // Find variantId based on productId + size + color
                 db.query(
                   `SELECT id FROM product_variants WHERE product_id=? AND size=? AND color=? LIMIT 1`,
                   [item.productId, item.size, item.color],
@@ -102,7 +96,6 @@ exports.createOrder = (req, res) => {
               });
             }
 
-            // Insert all items
             const sqlItems = `
               INSERT INTO order_items
               (order_id, product_id, variant_id, quantity, price_at_purchase)
@@ -119,7 +112,6 @@ exports.createOrder = (req, res) => {
               }
               console.log("Order items inserted for order:", orderId);
 
-              // ✅ Commit transaction
               db.commit((err) => {
                 if (err) {
                   console.error("Transaction commit failed:", err);
@@ -130,11 +122,6 @@ exports.createOrder = (req, res) => {
                     })
                   );
                 }
-
-                console.log(
-                  "Transaction committed successfully for order:",
-                  orderId
-                );
                 res.status(201).json({
                   message: "Order placed successfully!",
                   orderId,
@@ -150,7 +137,6 @@ exports.createOrder = (req, res) => {
   });
 };
 
-// 📦 Get all orders for admin
 exports.getAllOrders = (req, res) => {
   const sql = `
     SELECT
@@ -184,7 +170,6 @@ exports.getAllOrders = (req, res) => {
       return res.status(500).json({ error: "Fetch error" });
     }
 
-    // 🔄 Group flat rows into structured order objects
     const orders = {};
     rows.forEach((row) => {
       if (!orders[row.orderId]) {
@@ -227,7 +212,6 @@ exports.updateOrderStatus = (req, res) => {
     if (err)
       return res.status(500).json({ error: "Failed to update order status" });
 
-    // If status is changed to 'Shipped', update inventory
     if (status.toLowerCase() === "shipped") {
       const getItemsQuery = `
         SELECT product_id, variant_id, quantity 
@@ -239,7 +223,6 @@ exports.updateOrderStatus = (req, res) => {
         if (err)
           return res.status(500).json({ error: "Failed to fetch order items" });
 
-        // Update each variant's available_quantity
         const updateStockPromises = items.map((item) => {
           return new Promise((resolve, reject) => {
             const updateStockQuery = `
