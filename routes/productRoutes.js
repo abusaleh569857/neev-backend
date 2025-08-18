@@ -4,7 +4,6 @@ const router = express.Router();
 const {
   getAllProducts,
   getProductsBySearch,
-  getAllTrendingProducts,
   getDropshoulderProducts,
   getOldMoneyPoloProducts,
   getProductByIdByAdmin,
@@ -17,7 +16,6 @@ const {
 
 router.get("/", getAllProducts);
 router.get("/search", getProductsBySearch);
-router.get("/trending", getAllTrendingProducts);
 router.get("/dropshoulder", getDropshoulderProducts);
 router.get("/old-money-polo", getOldMoneyPoloProducts);
 router.get("/categories", getAllCategories);
